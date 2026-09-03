@@ -1,0 +1,38 @@
+name: Bug report
+description: Report reproducible incorrect behavior
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      placeholder: Include state, endpoint/UI action, and sanitized inputs.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized evidence
+      description: Add logs, workflow run ID, response, or screenshot. Never include secrets.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Agentic supervisor
+        - Policy or risk
+        - Razorpay or webhook
+        - Recovery
+        - Reconciliation
+        - Frontend
+        - Documentation
+    validations:
+      required: true

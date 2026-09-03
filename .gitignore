@@ -1,0 +1,42 @@
+# Python
+backend/venv/
+backend/.venv/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Runtime data
+backend/rupeeos.db
+backend/test_rupeeos.db
+*.db
+*.db-journal
+
+# Secrets
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env.local
+
+# Node / Next
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+*.tsbuildinfo
+
+# Build / coverage
+dist/
+build/
+coverage/
+deliverables/

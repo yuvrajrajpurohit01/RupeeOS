@@ -1,0 +1,87 @@
+@import "tailwindcss";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/inter/800.css";
+
+/* ---------------------------------------------------------
+   RupeeOS design tokens — derived from Razorpay's live brand
+   (Dodger Blue action color, Prussian Blue institutional navy,
+   "Blade" 4px edge, tokenized status pills, hairline dividers)
+--------------------------------------------------------- */
+:root {
+  --rzp-blue: #0d94fb;        /* primary action — Dodger Blue */
+  --rzp-blue-dark: #0b7dd6;
+  --rzp-blue-tint: #eaf6ff;
+  --rzp-navy: #012652;        /* institutional foundation — Prussian/Space Cadet */
+  --rzp-navy-2: #0c2651;
+  --rzp-ink: #0a1a2f;
+  --rzp-surface: #ffffff;
+  --rzp-canvas: #f8fafc;      /* Catskill White */
+  --rzp-border: #e3e8ef;
+  --rzp-muted: #5b6b82;
+
+  --rzp-success: #0d9448;
+  --rzp-success-tint: #e7f8ee;
+  --rzp-warning: #b7791f;
+  --rzp-warning-tint: #fff6e5;
+  --rzp-danger: #d92d20;
+  --rzp-danger-tint: #fef2f1;
+  --rzp-purple: #6822cc;      /* checkout brand accent */
+
+  --radius-blade: 4px;
+  --shadow-low: 0 1px 2px rgba(1, 38, 82, 0.06);
+  --shadow-med: 0 4px 12px rgba(1, 38, 82, 0.08);
+  --shadow-high: 0 12px 32px rgba(1, 38, 82, 0.14);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: var(--rzp-canvas);
+  color: var(--rzp-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--rzp-blue);
+  color: white;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.pulse-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rise-in {
+  animation: rise-in 0.35s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot, .rise-in { animation: none; }
+}
+
+/* thin scrollbar to match dense dashboard feel */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }

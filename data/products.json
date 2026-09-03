@@ -1,0 +1,47 @@
+[
+  {
+    "product_id": "pro-headphones",
+    "name": "RupeePods Pro",
+    "category": "audio",
+    "price": 4999,
+    "tags": ["audio", "headphones", "wireless", "music"],
+    "compatible_addon_ids": ["protection"]
+  },
+  {
+    "product_id": "smart-watch",
+    "name": "RupeeWatch S",
+    "category": "wearables",
+    "price": 7999,
+    "tags": ["watch", "wearable", "fitness"],
+    "compatible_addon_ids": ["sport-band"]
+  },
+  {
+    "product_id": "high-value-kit",
+    "name": "Merchant Creator Kit",
+    "category": "creator",
+    "price": 12999,
+    "tags": ["creator", "merchant", "kit", "camera"],
+    "compatible_addon_ids": ["priority-setup"]
+  },
+  {
+    "product_id": "protection",
+    "name": "2-year protection",
+    "category": "addon",
+    "price": 499,
+    "tags": ["protection", "warranty", "addon"]
+  },
+  {
+    "product_id": "sport-band",
+    "name": "Sport band",
+    "category": "addon",
+    "price": 799,
+    "tags": ["sport", "band", "addon"]
+  },
+  {
+    "product_id": "priority-setup",
+    "name": "Priority setup",
+    "category": "addon",
+    "price": 1499,
+    "tags": ["setup", "priority", "addon"]
+  }
+]
