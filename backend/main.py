@@ -33,6 +33,7 @@ from services import policy_engine, razorpay_service
 from services.agent_supervisor import agent_supervisor
 from services.audit_service import audit_log
 from services.clock import utc_now
+from services.llm_reasoning import llm_reasoning
 from services.database import (
     ReconciliationBatchRow,
     SessionLocal,
@@ -50,7 +51,7 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(
     title="RupeeOS API",
-    version="4.0.0",
+    version="4.1.0",
     description="Policy-constrained multi-agent money lifecycle orchestration for Razorpay Test Mode.",
     lifespan=lifespan,
 )
@@ -581,8 +582,15 @@ def system_status():
         "reason": cb["reason"],
         "razorpay_configured": razorpay_service.is_configured(),
         "storage": "sqlite",
-        "agentic_runtime": "durable-supervisor-v1",
+        "agentic_runtime": "durable-supervisor-v2-hybrid-ai",
+        "ai": llm_reasoning.status(),
     }
+
+
+@app.get("/ai/status")
+def ai_status():
+    """Expose configuration state without revealing the API key."""
+    return llm_reasoning.status()
 
 
 @app.get("/health/live")
@@ -599,7 +607,7 @@ def health_ready():
             db.execute(text("SELECT 1"))
     except Exception as exc:
         raise HTTPException(503, f"Database is not ready: {type(exc).__name__}") from exc
-    return {"status": "ready", "database": "connected", "razorpay_configured": razorpay_service.is_configured()}
+    return {"status": "ready", "database": "connected", "razorpay_configured": razorpay_service.is_configured(), "ai": llm_reasoning.status()}
 
 
 @app.post("/system/demo/failure-spike")

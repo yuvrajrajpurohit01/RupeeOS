@@ -11,12 +11,14 @@ os.environ["RUPEEOS_DATABASE_URL"] = "sqlite:///./test_rupeeos.db"
 os.environ["RAZORPAY_KEY_ID"] = ""
 os.environ["RAZORPAY_KEY_SECRET"] = ""
 os.environ["RAZORPAY_WEBHOOK_SECRET"] = "test-webhook-secret"
+os.environ["RUPEEOS_LLM_ENABLED"] = "false"
 
 from fastapi.testclient import TestClient
 
 import main
 from main import app
 from services.database import Base, engine
+from services.llm_reasoning import AIReasoningDecision, AIReasoningEnvelope, LLMReasoningService
 
 
 def setup_function():
@@ -131,6 +133,66 @@ def test_agentic_supervisor_enforces_step_budget():
         assert run["steps_used"] == 1
 
 
+def test_ai_reasoning_is_structured_and_cannot_select_wrong_agent(monkeypatch):
+    service = LLMReasoningService()
+    monkeypatch.setenv("RUPEEOS_LLM_ENABLED", "true")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("RUPEEOS_LLM_MODEL", "gpt-5.6-terra")
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            decision = {
+                "selected_agent": "recovery",
+                "diagnosis": "Network interruption is recoverable.",
+                "recommended_action": "RETRY_NOW",
+                "explanation": "Verified failure evidence supports one bounded retry.",
+                "confidence": 0.86,
+                "evidence": ["failure_reason=network_error", "attempts=0"],
+                "recovery_plan": ["Create a fresh order", "Wait for verified payment evidence"],
+                "requires_human_review": False,
+            }
+            return {"id": "resp_test", "output": [{"type": "message", "content": [{"type": "output_text", "text": json.dumps(decision)}]}]}
+
+    monkeypatch.setattr("services.llm_reasoning.requests.post", lambda *args, **kwargs: FakeResponse())
+    result = service.analyze(
+        expected_agent="recovery",
+        allowed_actions=["RETRY_NOW", "RETRY_LATER", "ESCALATE", "STOP_RECOVERY"],
+        context={"failure_reason": "network_error", "attempts": 0, "api_key": "must-not-leak"},
+    )
+    assert result.used is True
+    assert result.decision.selected_agent == "recovery"
+    assert result.decision.recommended_action == "RETRY_NOW"
+
+    wrong = result.decision.model_copy(update={"selected_agent": "risk"})
+    try:
+        service._validate_authority(wrong, "recovery", ["RETRY_NOW"])
+        assert False, "wrong specialist must be rejected"
+    except ValueError:
+        pass
+
+
+def test_ai_can_only_make_risk_recommendation_more_conservative():
+    from services.agent_supervisor import agent_supervisor
+
+    decision = AIReasoningDecision(
+        selected_agent="risk",
+        diagnosis="Evidence is uncertain.",
+        recommended_action="VERIFY",
+        explanation="Request human verification.",
+        confidence=0.72,
+        evidence=["new customer"],
+        recovery_plan=[],
+        requires_human_review=True,
+    )
+    ai = AIReasoningEnvelope(used=True, model="gpt-5.6-terra", decision=decision)
+    assert agent_supervisor._conservative_risk_recommendation("ALLOW", ai) == "VERIFY"
+    permissive_ai = AIReasoningEnvelope(used=True, model="gpt-5.6-terra", decision=decision.model_copy(update={"recommended_action": "ALLOW"}))
+    assert agent_supervisor._conservative_risk_recommendation("HOLD", permissive_ai) == "HOLD"
+
+
 def test_agentic_recovery_creates_fresh_policy_approved_order(monkeypatch):
     monkeypatch.setattr(main.razorpay_service, "create_order", _fake_order)
     with TestClient(app) as client:
@@ -209,6 +271,9 @@ def test_validation_and_readiness_endpoints():
         assert invalid.status_code == 422
         assert client.get("/health/live").status_code == 200
         assert client.get("/health/ready").status_code == 200
+        ai = client.get("/ai/status").json()
+        assert ai["active"] is False
+        assert ai["authority"] == "recommendation_only"
         agents = client.get("/agentic/agents").json()["agents"]
         assert {agent["name"] for agent in agents} == {"supervisor", "growth", "risk", "recovery", "finance"}
 

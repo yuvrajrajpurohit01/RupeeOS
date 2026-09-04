@@ -58,6 +58,20 @@ export default function CommandCenterPage() {
         {systemStatus.circuit_breaker_tripped && <div className="mt-3 text-xs rounded-[4px] p-2.5" style={{ background: "var(--rzp-danger-tint)", color: "var(--rzp-danger)" }}>The backend now blocks new autonomous money actions and routes them to human review.</div>}
       </Card>
 
+      <Card className="mb-6">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-[4px] flex items-center justify-center" style={{ background: systemStatus.ai?.active ? "var(--rzp-blue-tint)" : "var(--rzp-canvas)", color: "var(--rzp-blue-dark)" }}><Bot size={20} /></div>
+            <div>
+              <div className="font-bold text-sm">Hybrid AI reasoning</div>
+              <div className="text-xs" style={{ color: "var(--rzp-muted)" }}>{systemStatus.ai?.model ?? "gpt-5.6-terra"} · {systemStatus.ai?.active ? "live structured reasoning" : "safe deterministic fallback"}</div>
+            </div>
+          </div>
+          <StatusPill label={systemStatus.ai?.active ? "AI ACTIVE" : "AI FALLBACK"} tone={systemStatus.ai?.active ? "success" : "warning"} />
+        </div>
+        <p className="text-xs mt-3" style={{ color: "var(--rzp-muted)" }}>The model selects and explains recommendations using structured output. The Money State Graph validates routing, and only the deterministic Policy Engine can authorize an external action.</p>
+      </Card>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Metric label="Revenue processed" value={formatINR(metrics?.revenue_processed ?? 0)} />
         <Metric label="Revenue recovered" value={formatINR(metrics?.revenue_recovered ?? 0)} />
@@ -148,7 +162,7 @@ export default function CommandCenterPage() {
 
       <Card>
         <SectionLabel>Agent decision telemetry</SectionLabel>
-        <p className="text-xs mb-3" style={{ color: "var(--rzp-muted)" }}>Fake Claude token/cost records were removed. The current demo reports the engines it actually executes. Swap in a real model provider later and this surface can report real model telemetry.</p>
+        <p className="text-xs mb-3" style={{ color: "var(--rzp-muted)" }}>This surface reports the engine actually used for each decision: {systemStatus.ai?.active ? "OpenAI structured reasoning with deterministic policy enforcement" : "deterministic fallback because AI is disabled or unconfigured"}.</p>
         <DecisionOpsStrip runs={agentRuns.slice(-30)} />
       </Card>
     </div>

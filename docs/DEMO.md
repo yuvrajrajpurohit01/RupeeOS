@@ -5,6 +5,7 @@
 - Start FastAPI on port `8000` and Next.js on `3000`.
 - Confirm `/health/ready` returns `ready`.
 - Confirm Command Center shows `FastAPI connected` and Razorpay configuration is true.
+- Confirm Command Center shows `AI ACTIVE` and `gpt-5.6-terra` when presenting the hybrid flow.
 - Start the Cloudflare tunnel and verify the Razorpay webhook URL/secret.
 - Keep Swagger `/docs` open as a backup.
 - Use Razorpay Test Mode only.
@@ -56,7 +57,8 @@ Close with: “Agents recommend. Policy decides. Verified evidence changes money
 
 ## Honest answers for judges
 
-- **Are the agents live?** Yes: every button calls backend decision code and persists real agent/supervisor runs. The current engines are deterministic, not an LLM.
+- **Are the agents live?** Yes: every button calls backend decision code and persists real agent/supervisor runs. With AI enabled, Risk and Recovery use real OpenAI structured reasoning; the trace records the engine actually used.
+- **Can the LLM move money?** No. It has no payment tools. Its specialist selection and recommendation are schema-constrained, checked against the state graph, combined conservatively with rules, and passed to deterministic policy.
 - **Does it move real money?** No. The repository is configured for Razorpay Test Mode.
 - **Is the evaluation merchant performance?** No. It is a deterministic seeded simulation for regression evidence.
 - **What is autonomous?** State observation, specialist routing, risk/recovery recommendations, policy evaluation, and explicitly permitted order preparation. Customer payment, signed provider evidence, human gates, and settlement input remain external boundaries.

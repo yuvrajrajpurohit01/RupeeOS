@@ -1,5 +1,12 @@
 # Changelog
 
+## 4.1.0 - 2026-09-04
+
+- Added optional OpenAI `gpt-5.6-terra` structured reasoning for risk and recovery workflows.
+- Added schema-constrained specialist selection, diagnosis, evidence, confidence, and recovery plans.
+- Added conservative AI/rules aggregation so model output cannot weaken a safety recommendation.
+- Added `/ai/status`, Command Center AI state, safe fallback behavior, configuration and regression tests.
+
 All notable project changes are documented here.
 
 ## 4.0.0 — 2026-09-03

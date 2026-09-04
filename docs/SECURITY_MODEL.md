@@ -38,12 +38,13 @@ The Buildathon version does not yet provide authentication, role-based access co
 
 ## LLM/model policy
 
-The current agents are deterministic and advertise their actual engines. If an LLM is added later:
+The optional OpenAI reasoning layer advertises the actual engine used. If disabled, unconfigured, invalid, unavailable, or outside the allowed routing/action set, execution falls back to deterministic agents. The implementation:
 
 1. Require a strict structured schema and reject invalid output.
 2. Treat model output as untrusted recommendation data.
-3. Keep policy evaluation deterministic.
-4. Redact sensitive fields before model calls.
-5. Record the real provider/model/latency, without fabricated token or cost values.
-6. Test prompt-injection and tool-confusion scenarios.
-7. Never give the model raw secret material or an unrestricted provider client.
+3. Keeps policy evaluation deterministic.
+4. Removes secret-like fields before sending bounded transaction evidence.
+5. Uses strict structured output and rejects unauthorized specialist or action selections.
+6. Allows AI to make a rule recommendation stricter, never more permissive.
+7. Records the real provider, model, and latency without fabricated token or cost values.
+8. Never gives the model raw secret material or a payment-provider client.

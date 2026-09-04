@@ -2,7 +2,7 @@
 
 > A policy-constrained, multi-agent operating system for the complete Razorpay money lifecycle.
 
-RupeeOS follows one rupee from product discovery through risk assessment, payment, failed-payment recovery, settlement, and reconciliation. A durable supervisor selects specialist agents from the current Money State Graph, records every step, and pauses at human or external-payment boundaries. Agents can recommend; only the deterministic Policy Engine can authorize a money-related action.
+RupeeOS follows one rupee from product discovery through risk assessment, payment, failed-payment recovery, settlement, and reconciliation. A durable supervisor selects specialist agents from the current Money State Graph, records every step, and pauses at human or external-payment boundaries. AI and rule-based agents can recommend; only the deterministic Policy Engine can authorize a money-related action.
 
 **Razorpay Buildathon · Open Track · Test Mode only**
 
@@ -12,6 +12,7 @@ Most payment demos stop after opening checkout. RupeeOS models the operational w
 
 - One persistent Money State Graph across commerce, risk, recovery, and finance.
 - A real supervisor loop with step budgets, state-based delegation, pause/resume, and durable traces.
+- Optional OpenAI structured reasoning for specialist selection, diagnosis, recovery planning, confidence, and evidence.
 - Five bounded agents: Supervisor, Growth, Risk, Recovery, and Finance.
 - Server-enforced policy gates for high-value payments, retry count, recovery confidence, amount limits, and circuit-breaker state.
 - Human approval inbox for decisions outside autonomous limits.
@@ -37,7 +38,7 @@ flowchart TD
     MSG --> AUD["Audit + telemetry"]
 ```
 
-The system is intentionally hybrid. Agent reasoning is bounded and inspectable; deterministic policy controls side effects. No model calls, token usage, accuracy claims, or recovered-revenue claims are fabricated.
+The system is intentionally hybrid. When configured, OpenAI structured reasoning enriches risk and recovery decisions; deterministic rules remain the safe fallback and the Policy Engine controls side effects. The UI reports the engine actually used, so model use is never fabricated.
 
 ## What makes it agentic
 
@@ -173,6 +174,18 @@ https://YOUR-TUNNEL.trycloudflare.com/webhooks/razorpay
 ```
 
 Subscribe to `payment.captured` and `payment.failed`, and use the exact same webhook secret in Razorpay and `backend/.env`.
+
+### 4. Enable hybrid AI reasoning
+
+RupeeOS defaults to deterministic fallback so it remains runnable without a model key. To activate the real AI layer, set these values in `backend/.env`:
+
+```dotenv
+RUPEEOS_LLM_ENABLED=true
+RUPEEOS_LLM_MODEL=gpt-5.6-terra
+OPENAI_API_KEY=your_openai_api_key
+```
+
+Restart the backend and open `http://localhost:8000/ai/status`. `active` must be `true`. The model returns strict structured output containing specialist selection, diagnosis, recommendation, explanation, confidence, evidence, recovery plan, and human-review advice. Its choice is constrained by the Money State Graph. RupeeOS combines model and rule recommendations conservatively, and the deterministic Policy Engine retains final authority.
 
 ## Docker Compose
 

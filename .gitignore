@@ -40,3 +40,9 @@ dist/
 build/
 coverage/
 deliverables/
+
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env.local

@@ -65,6 +65,7 @@ Start request:
 | `GET` | `/health/live` | Process liveness |
 | `GET` | `/health/ready` | Database readiness and provider configuration state |
 | `GET` | `/system/status` | Circuit breaker and runtime status |
+| `GET` | `/ai/status` | AI provider, model, configuration and authority status; never returns the API key |
 | `GET` | `/command-center/metrics` | Aggregated operational metrics |
 | `POST` | `/evaluation/recovery-batch` | Seeded synthetic evaluation only |
 

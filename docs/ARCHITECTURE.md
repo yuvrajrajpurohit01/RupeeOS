@@ -51,6 +51,10 @@ The runtime is synchronous for the Buildathon deployment but durable across proc
 | Finance | expected and received settlement records | match, fee-adjusted match, exception | initiate payouts |
 | Supervisor | Money State Graph, policy result | plan steps and safe routing | bypass policy or verified evidence |
 
+### Hybrid AI reasoning
+
+When `RUPEEOS_LLM_ENABLED=true` and `OPENAI_API_KEY` is configured, Risk and Recovery supervisor steps call the OpenAI Responses API with `gpt-5.6-terra` by default. Strict structured output supplies the proposed specialist, diagnosis, recommendation, explanation, confidence, evidence, recovery plan, and human-review flag. RupeeOS rejects a specialist or action outside the state graph's allowlist. It then chooses the more conservative of the model and rule recommendations before asking the Policy Engine for authorization. Timeouts, refusals, invalid schemas, provider errors, disabled AI, and missing credentials all fall back to the deterministic engine.
+
 ### Policy Engine
 
 The Policy Engine is deterministic and separate from agent recommendation. It enforces:

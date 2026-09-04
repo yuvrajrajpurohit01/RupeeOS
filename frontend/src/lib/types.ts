@@ -95,6 +95,15 @@ export interface SystemStatus {
   razorpay_configured?: boolean;
   storage?: string;
   agentic_runtime?: string;
+  ai?: {
+    enabled: boolean;
+    configured: boolean;
+    active: boolean;
+    provider: string;
+    model: string;
+    mode: string;
+    authority: string;
+  };
 }
 
 export interface AgentManifest {

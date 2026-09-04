@@ -18,6 +18,7 @@ from services import policy_engine, razorpay_service
 from services.audit_service import audit_log
 from services.clock import utc_now
 from services.database import AgentWorkflowRow, SessionLocal
+from services.llm_reasoning import AIReasoningEnvelope, llm_reasoning
 from services.orchestrator import orchestrator
 
 
@@ -72,7 +73,15 @@ AGENT_MANIFESTS = [
 
 class AgentSupervisor:
     def manifests(self) -> list[AgentManifest]:
-        return AGENT_MANIFESTS
+        ai = llm_reasoning.status()
+        manifests = [manifest.model_copy(deep=True) for manifest in AGENT_MANIFESTS]
+        if ai["active"]:
+            for manifest in manifests:
+                if manifest.name in {"supervisor", "risk", "recovery"}:
+                    manifest.engine = f"{ai['model']} + {manifest.engine}"
+                    manifest.mode = "hybrid-ai-policy"
+                    manifest.capabilities.append("structured AI reasoning")
+        return manifests
 
     def start(
         self,
@@ -213,23 +222,36 @@ class AgentSupervisor:
         started_dt = utc_now()
         started_perf = time.perf_counter()
         analysis = risk_agent.analyze(txn.amount, {"is_new_customer": True, "transactions_last_hour": 1})
+        ai = llm_reasoning.analyze(
+            expected_agent="risk",
+            allowed_actions=["ALLOW", "VERIFY", "HOLD"],
+            context={
+                "goal": run.goal,
+                "money_id": txn.money_id,
+                "state": txn.state.value,
+                "amount_inr": txn.amount,
+                "customer_history": {"is_new_customer": True, "transactions_last_hour": 1},
+                "deterministic_analysis": analysis,
+            },
+        )
+        effective_recommendation = self._conservative_risk_recommendation(analysis["risk_decision"], ai)
         orchestrator.update_fields(
             txn.money_id,
             risk_score=analysis["risk_score"],
-            risk_decision=analysis["risk_decision"],
+            risk_decision=effective_recommendation,
             risk_factors=analysis["factors"],
         )
         orchestrator.record_agent_run(
             txn.money_id,
             "risk",
             started_perf,
-            f"Risk {analysis['risk_score']:.2f} -> {analysis['risk_decision']}",
-            confidence=analysis["confidence"],
-            engine=analysis["engine"],
-            mode=analysis["mode"],
+            f"Risk {analysis['risk_score']:.2f} -> {effective_recommendation}",
+            confidence=ai.decision.confidence if ai.used and ai.decision else analysis["confidence"],
+            engine=ai.model if ai.used else analysis["engine"],
+            mode="hybrid-ai-policy" if ai.used else analysis["mode"],
         )
         breaker = orchestrator.circuit_breaker_status()
-        decision = policy_engine.approve_risk_action(analysis["risk_decision"], breaker["tripped"])
+        decision = policy_engine.approve_risk_action(effective_recommendation, breaker["tripped"])
         orchestrator.record_policy_decision(txn.money_id, decision)
 
         if decision.approved and decision.action == "INITIATE_PAYMENT":
@@ -255,13 +277,13 @@ class AgentSupervisor:
                 sequence=run.steps_used + 1,
                 agent="risk",
                 observation=f"Checkout amount is INR {txn.amount:.2f}; {len(analysis['factors'])} risk signals were evaluated.",
-                reasoning=f"rules-v1 produced score {analysis['risk_score']:.2f} and recommendation {analysis['risk_decision']}.",
-                recommendation=analysis["risk_decision"],
+                reasoning=self._reasoning_text(ai, f"rules-v1 produced score {analysis['risk_score']:.2f} and recommendation {analysis['risk_decision']}."),
+                recommendation=effective_recommendation,
                 action=decision.action,
                 outcome=outcome,
                 status=step_status,
-                confidence=analysis["confidence"],
-                evidence={"risk_score": analysis["risk_score"], "factors": analysis["factors"], "circuit_breaker": breaker},
+                confidence=ai.decision.confidence if ai.used and ai.decision else analysis["confidence"],
+                evidence={"risk_score": analysis["risk_score"], "rules_recommendation": analysis["risk_decision"], "factors": analysis["factors"], "circuit_breaker": breaker, "ai_reasoning": ai.trace()},
                 policy_decision={"approved": decision.approved, "action": decision.action, "reason": decision.reason},
                 started_at=started_dt,
                 completed_at=utc_now(),
@@ -346,6 +368,20 @@ class AgentSupervisor:
         started_dt = utc_now()
         started_perf = time.perf_counter()
         analysis = recovery_agent.analyze(txn.failure_reason or "unknown", txn.amount, txn.recovery_attempts)
+        ai = llm_reasoning.analyze(
+            expected_agent="recovery",
+            allowed_actions=["RETRY_NOW", "RETRY_LATER", "ESCALATE", "STOP_RECOVERY"],
+            context={
+                "goal": run.goal,
+                "money_id": txn.money_id,
+                "state": txn.state.value,
+                "amount_inr": txn.amount,
+                "failure_reason": txn.failure_reason or "unknown",
+                "recovery_attempts": txn.recovery_attempts,
+                "deterministic_analysis": analysis,
+            },
+        )
+        effective_recommendation = self._conservative_recovery_recommendation(analysis["recommended_action"], ai)
         orchestrator.update_fields(
             txn.money_id,
             recovery_probability=analysis["recovery_probability"],
@@ -357,14 +393,14 @@ class AgentSupervisor:
             txn.money_id,
             "recovery",
             started_perf,
-            f"{analysis['recommended_action']} at P={analysis['recovery_probability']:.2f}",
-            confidence=analysis["confidence"],
-            engine=analysis["engine"],
-            mode=analysis["mode"],
+            f"{effective_recommendation} at P={analysis['recovery_probability']:.2f}",
+            confidence=ai.decision.confidence if ai.used and ai.decision else analysis["confidence"],
+            engine=ai.model if ai.used else analysis["engine"],
+            mode="hybrid-ai-policy" if ai.used else analysis["mode"],
         )
         breaker = orchestrator.circuit_breaker_status()
         decision = policy_engine.approve_recovery(
-            analysis["recommended_action"],
+            effective_recommendation,
             txn.recovery_attempts,
             analysis["recovery_probability"],
             txn.amount,
@@ -398,7 +434,7 @@ class AgentSupervisor:
                 step_status = "PAUSED"
         elif decision.action == "MANUAL_REVIEW":
             orchestrator.apply_transition(txn.money_id, MoneyState.MANUAL_REVIEW, "policy_engine", decision.reason)
-            orchestrator.create_manual_review(txn.money_id, "RECOVERY", analysis["recommended_action"], decision.reason)
+            orchestrator.create_manual_review(txn.money_id, "RECOVERY", effective_recommendation, decision.reason)
             outcome = "Recovery action routed to the human approval inbox."
             stop_reason = "HUMAN_APPROVAL_REQUIRED"
             step_status = "PAUSED"
@@ -414,13 +450,13 @@ class AgentSupervisor:
                 sequence=run.steps_used + 1,
                 agent="recovery",
                 observation=f"Payment failed with '{txn.failure_reason or 'unknown'}' after {txn.recovery_attempts} recovery attempt(s).",
-                reasoning=analysis["explanation"],
-                recommendation=analysis["recommended_action"],
+                reasoning=self._reasoning_text(ai, analysis["explanation"]),
+                recommendation=effective_recommendation,
                 action=decision.action,
                 outcome=outcome,
                 status=step_status,
-                confidence=analysis["confidence"],
-                evidence={"recovery_probability": analysis["recovery_probability"], "circuit_breaker": breaker, "order_created": checkout is not None},
+                confidence=ai.decision.confidence if ai.used and ai.decision else analysis["confidence"],
+                evidence={"recovery_probability": analysis["recovery_probability"], "rules_recommendation": analysis["recommended_action"], "circuit_breaker": breaker, "order_created": checkout is not None, "ai_reasoning": ai.trace()},
                 policy_decision={"approved": decision.approved, "action": decision.action, "reason": decision.reason},
                 started_at=started_dt,
                 completed_at=utc_now(),
@@ -466,6 +502,28 @@ class AgentSupervisor:
             "AGENTIC_STEP_COMPLETED",
             {"run_id": run_id, "sequence": step.sequence, "action": step.action, "status": step.status, "outcome": step.outcome},
         )
+
+    @staticmethod
+    def _reasoning_text(ai: AIReasoningEnvelope, fallback: str) -> str:
+        if ai.used and ai.decision:
+            return ai.decision.explanation
+        return f"{fallback} AI fallback: {ai.fallback_reason}."
+
+    @staticmethod
+    def _conservative_risk_recommendation(rules_action: str, ai: AIReasoningEnvelope) -> str:
+        if not ai.used or not ai.decision:
+            return rules_action
+        severity = {"ALLOW": 0, "VERIFY": 1, "HOLD": 2}
+        ai_action = ai.decision.recommended_action
+        return max((rules_action, ai_action), key=lambda action: severity[action])
+
+    @staticmethod
+    def _conservative_recovery_recommendation(rules_action: str, ai: AIReasoningEnvelope) -> str:
+        if not ai.used or not ai.decision:
+            return rules_action
+        severity = {"RETRY_NOW": 0, "RETRY_LATER": 1, "ESCALATE": 2, "STOP_RECOVERY": 3}
+        ai_action = ai.decision.recommended_action
+        return max((rules_action, ai_action), key=lambda action: severity[action])
 
     def _set_pending_checkout(self, run_id: str, checkout: dict[str, Any]) -> None:
         with SessionLocal() as db:
